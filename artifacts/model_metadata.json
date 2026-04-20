@@ -1,0 +1,34 @@
+{
+  "best_model": "XGBoost",
+  "cv_results": {
+    "LogisticRegression": {
+      "mean_auc": 0.8885018036519161,
+      "std_auc": 0.013999568856033826,
+      "min_auc": 0.8651447544093879,
+      "max_auc": 0.9047825356546035
+    },
+    "RandomForest": {
+      "mean_auc": 0.951584029300211,
+      "std_auc": 0.011789536697727926,
+      "min_auc": 0.9355192888763967,
+      "max_auc": 0.9694746136865342
+    },
+    "XGBoost": {
+      "mean_auc": 0.9719532049471329,
+      "std_auc": 0.00632778152870176,
+      "min_auc": 0.9646769644293938,
+      "max_auc": 0.9834437086092715
+    }
+  },
+  "test_auc": 0.9976833108412055,
+  "train_rows": 4504,
+  "test_rows": 1126,
+  "churn_rate_train": 0.16829484902309058,
+  "churn_rate_test": 0.16873889875666073,
+  "n_features_raw": 18,
+  "n_features_after_ohe": 34,
+  "shap_type": "TreeExplainer",
+  "random_state": 42,
+  "test_size_ratio": 0.2,
+  "scale_pos_weight": 4.941952506596306
+}

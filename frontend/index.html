@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Customer Churn Predictor</title>
+  <style>
+    /* ── Reset & Base ────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f1117;
+      --surface:    #1a1d27;
+      --surface2:   #222636;
+      --border:     #2e3250;
+      --accent:     #6c63ff;
+      --accent2:    #48cfad;
+      --danger:     #ff4757;
+      --warning:    #ffa502;
+      --success:    #2ed573;
+      --text:       #e8eaf6;
+      --text-muted: #7c83a8;
+      --radius:     12px;
+      --shadow:     0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .page-wrapper {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+font-weight: 700;
+background: linear-gradient(135deg, var(--accent), var(--accent2));
+background-clip: text;
+-webkit-background-clip: text;
+color: transparent;
+-webkit-text-fill-color: transparent;
+margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 860px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Card ────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Form ────────────────────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-group input,
+    .form-group select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--accent);
+    }
+
+    .form-group select option {
+      background: var(--surface2);
+    }
+
+    .btn-predict {
+      margin-top: 20px;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn-predict:hover  { opacity: 0.92; }
+    .btn-predict:active { transform: scale(0.98); }
+    .btn-predict:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Result Panel ────────────────────────────────────────── */
+    #result-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 300px;
+      color: var(--text-muted);
+      gap: 12px;
+      text-align: center;
+    }
+
+    .placeholder-icon {
+      font-size: 3rem;
+      opacity: 0.3;
+    }
+
+    /* ── Verdict Banner ──────────────────────────────────────── */
+    .verdict {
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .verdict.churn    { background: rgba(255,71,87,0.15);  border: 1px solid var(--danger);  }
+    .verdict.no-churn { background: rgba(46,213,115,0.12); border: 1px solid var(--success); }
+
+    .verdict-left h3 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .verdict.churn    .verdict-left h3 { color: var(--danger);  }
+    .verdict.no-churn .verdict-left h3 { color: var(--success); }
+
+    .verdict-left p { color: var(--text-muted); font-size: 0.88rem; }
+
+    .risk-badge {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .risk-high   { background: rgba(255,71,87,0.2);   color: var(--danger);  border: 1px solid var(--danger);  }
+    .risk-medium { background: rgba(255,165,2,0.2);   color: var(--warning); border: 1px solid var(--warning); }
+    .risk-low    { background: rgba(46,213,115,0.15); color: var(--success); border: 1px solid var(--success); }
+
+    /* ── Probability Gauge ───────────────────────────────────── */
+    .gauge-wrap {
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+    }
+
+    .gauge-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .gauge-label span:first-child {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .gauge-pct {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .gauge-track {
+      background: var(--border);
+      border-radius: 99px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .gauge-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ── SHAP Features ───────────────────────────────────────── */
+    .shap-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .shap-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+
+    .shap-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .shap-feat-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .shap-value {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
+
+    .shap-pos { background: rgba(255,71,87,0.15);   color: var(--danger);  }
+    .shap-neg { background: rgba(46,213,115,0.15);  color: var(--success); }
+
+    .shap-bar-track {
+      background: var(--border);
+      border-radius: 99px;
+      height: 5px;
+      overflow: hidden;
+    }
+
+    .shap-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+    }
+
+    .shap-direction {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    /* ── Recommendations ─────────────────────────────────────── */
+    .rec-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .rec-item {
+      border-radius: 10px;
+      padding: 14px 16px;
+      border-left: 4px solid;
+      background: var(--surface2);
+      border-color: var(--border);
+    }
+
+    .rec-item.priority-High   { border-color: var(--danger);  background: rgba(255,71,87,0.07);  }
+    .rec-item.priority-Medium { border-color: var(--warning); background: rgba(255,165,2,0.07);  }
+    .rec-item.priority-Low    { border-color: var(--accent);  background: rgba(108,99,255,0.07); }
+
+    .rec-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .rec-driven {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .rec-priority {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    .rec-priority.High   { background: rgba(255,71,87,0.2);  color: var(--danger);  }
+    .rec-priority.Medium { background: rgba(255,165,2,0.2);  color: var(--warning); }
+    .rec-priority.Low    { background: rgba(108,99,255,0.2); color: var(--accent);  }
+
+    .rec-text {
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    /* ── API Status ──────────────────────────────────────────── */
+    .api-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot.green  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .dot.red    { background: var(--danger);  box-shadow: 0 0 6px var(--danger);  }
+    .dot.yellow { background: var(--warning); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+
+    /* ── Spinner ─────────────────────────────────────────────── */
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error box ───────────────────────────────────────────── */
+    .error-box {
+      background: rgba(255,71,87,0.1);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 16px;
+      color: var(--danger);
+      font-size: 0.88rem;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      margin-top: 36px;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+  </style>
+</head>
+
+<body>
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <header>
+    <h1>Customer Churn Predictor</h1>
+    <p>XGBoost + SHAP Explainability &nbsp;|&nbsp; E-Commerce Retention Intelligence</p>
+    <div class="api-status" id="api-status" style="justify-content:center; margin-top:10px;">
+      <div class="dot yellow" id="status-dot"></div>
+      <span id="status-text">Connecting to API...</span>
+    </div>
+  </header>
+
+  <div class="main-grid">
+
+    <!-- LEFT: Input Form -->
+    <div class="card">
+      <h2>Customer Profile</h2>
+      <form id="predict-form" autocomplete="off">
+        <div class="form-grid">
+
+          <!-- Numerical inputs -->
+          <div class="form-group">
+            <label>Tenure (months)</label>
+            <input type="number" id="Tenure" placeholder="e.g. 4" step="0.1" min="0"/>
+          </div>
+          <div class="form-group">
+            <label>Warehouse to Home (km)</label>
+            <input type="number" id="WarehouseToHome" placeholder="e.g. 6" step="0.1" min="0"/>
+          </div>
+          <div class="form-group">
+            <label>Hours on App / Day</label>
+            <input type="number" id="HourSpendOnApp" placeholder="e.g. 3" step="0.1" min="0"/>
+          </div>
+          <div class="form-group">
+            <label>Devices Registered</label>
+            <input type="number" id="NumberOfDeviceRegistered" placeholder="e.g. 3" min="1" required/>
+          </div>
+          <div class="form-group">
+            <label>Satisfaction Score (1-5)</label>
+            <input type="number" id="SatisfactionScore" placeholder="1 to 5" min="1" max="5" required/>
+          </div>
+          <div class="form-group">
+            <label>Number of Addresses</label>
+            <input type="number" id="NumberOfAddress" placeholder="e.g. 9" min="0" required/>
+          </div>
+          <div class="form-group">
+            <label>Raised Complaint?</label>
+            <select id="Complain" required>
+              <option value="">-- Select --</option>
+              <option value="1">Yes</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Order Hike from Last Year (%)</label>
+            <input type="number" id="OrderAmountHikeFromlastYear" placeholder="e.g. 11" step="0.1"/>
+          </div>
+          <div class="form-group">
+            <label>Coupons Used (last month)</label>
+            <input type="number" id="CouponUsed" placeholder="e.g. 1" step="0.1" min="0"/>
+          </div>
+          <div class="form-group">
+            <label>Order Count (last month)</label>
+            <input type="number" id="OrderCount" placeholder="e.g. 1" step="0.1" min="0"/>
+          </div>
+          <div class="form-group">
+            <label>Days Since Last Order</label>
+            <input type="number" id="DaySinceLastOrder" placeholder="e.g. 5" step="0.1" min="0"/>
+          </div>
+          <div class="form-group">
+            <label>Cashback Amount (INR)</label>
+            <input type="number" id="CashbackAmount" placeholder="e.g. 159.93" step="0.01" min="0" required/>
+          </div>
+          <div class="form-group">
+            <label>City Tier</label>
+            <select id="CityTier" required>
+              <option value="">-- Select --</option>
+              <option value="1">Tier 1</option>
+              <option value="2">Tier 2</option>
+              <option value="3">Tier 3</option>
+            </select>
+          </div>
+
+          <!-- Categorical inputs -->
+          <div class="form-group">
+            <label>Preferred Login Device</label>
+            <select id="PreferredLoginDevice" required>
+              <option value="">-- Select --</option>
+              <option>Mobile Phone</option>
+              <option>Phone</option>
+              <option>Computer</option>
+              <option>Tablet</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Preferred Payment Mode</label>
+            <select id="PreferredPaymentMode" required>
+              <option value="">-- Select --</option>
+              <option>Debit Card</option>
+              <option>Credit Card</option>
+              <option>UPI</option>
+              <option>Cash on Delivery</option>
+              <option>E wallet</option>
+              <option>CC</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Gender</label>
+            <select id="Gender" required>
+              <option value="">-- Select --</option>
+              <option>Male</option>
+              <option>Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Preferred Order Category</label>
+            <select id="PreferedOrderCat" required>
+              <option value="">-- Select --</option>
+              <option>Laptop &amp; Accessory</option>
+              <option>Mobile</option>
+              <option>Mobile Phone</option>
+              <option>Fashion</option>
+              <option>Grocery</option>
+              <option>Others</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Marital Status</label>
+            <select id="MaritalStatus" required>
+              <option value="">-- Select --</option>
+              <option>Single</option>
+              <option>Married</option>
+              <option>Divorced</option>
+            </select>
+          </div>
+
+        </div><!-- /form-grid -->
+
+        <button type="submit" class="btn-predict" id="predict-btn">
+          Run Prediction
+        </button>
+      </form>
+    </div><!-- /left card -->
+
+    <!-- RIGHT: Results -->
+    <div id="result-panel">
+      <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+        <div class="placeholder" id="placeholder">
+          <div class="placeholder-icon">&#x1F4CA;</div>
+          <p>Fill in the customer profile<br/>and click <strong>Run Prediction</strong></p>
+        </div>
+        <div id="results-content" style="display:none;">
+
+          <!-- Verdict -->
+          <div id="verdict-banner" class="verdict"></div>
+
+          <!-- Probability Gauge -->
+          <div class="gauge-wrap" style="margin-top:16px;">
+            <div class="gauge-label">
+              <span>Churn Probability</span>
+              <span class="gauge-pct" id="gauge-pct">0%</span>
+            </div>
+            <div class="gauge-track">
+              <div class="gauge-fill" id="gauge-fill" style="width:0%;"></div>
+            </div>
+          </div>
+
+          <!-- SHAP Features -->
+          <div style="margin-top:20px;">
+            <h2 style="font-size:0.82rem; color:var(--text-muted); text-transform:uppercase;
+                       letter-spacing:0.08em; margin-bottom:12px; padding-bottom:8px;
+                       border-bottom:1px solid var(--border);">
+              Top Driving Factors (SHAP)
+            </h2>
+            <div class="shap-list" id="shap-list"></div>
+          </div>
+
+          <!-- Recommendations -->
+          <div style="margin-top:20px;">
+            <h2 style="font-size:0.82rem; color:var(--text-muted); text-transform:uppercase;
+                       letter-spacing:0.08em; margin-bottom:12px; padding-bottom:8px;
+                       border-bottom:1px solid var(--border);">
+              Retention Recommendations
+            </h2>
+            <div class="rec-list" id="rec-list"></div>
+          </div>
+
+        </div><!-- /results-content -->
+      </div>
+    </div><!-- /right panel -->
+
+  </div><!-- /main-grid -->
+
+  <footer>
+    <p>Churn Prediction System &nbsp;|&nbsp; XGBoost + SHAP &nbsp;|&nbsp; FastAPI Backend &nbsp;|&nbsp;
+      <span id="footer-auc"></span>
+    </p>
+  </footer>
+
+</div><!-- /page-wrapper -->
+
+<script>
+  const API = "http://localhost:8000";
+
+  // ── Check API health on load ─────────────────────────────────
+  async function checkHealth() {
+    const dot  = document.getElementById("status-dot");
+    const text = document.getElementById("status-text");
+    try {
+      const res  = await fetch(`${API}/health`);
+      const data = await res.json();
+      dot.className  = "dot green";
+      text.textContent = `API Online  |  ${data.model}  |  Test AUC: ${data.test_auc.toFixed(4)}  |  CV AUC: ${data.cv_auc.toFixed(4)}`;
+      document.getElementById("footer-auc").textContent =
+        `Test AUC: ${data.test_auc.toFixed(4)}`;
+    } catch {
+      dot.className  = "dot red";
+      text.textContent = "API Offline — make sure uvicorn is running on port 8000";
+    }
+  }
+
+  // ── Build request payload from form ─────────────────────────
+  function getFormPayload() {
+    const num = (id) => {
+      const v = document.getElementById(id).value;
+      return v === "" ? null : parseFloat(v);
+    };
+    const int_ = (id) => {
+      const v = document.getElementById(id).value;
+      return v === "" ? null : parseInt(v);
+    };
+    const str = (id) => {
+      const v = document.getElementById(id).value;
+      return v === "" ? null : v;
+    };
+
+    return {
+      Tenure:                      num("Tenure"),
+      WarehouseToHome:             num("WarehouseToHome"),
+      HourSpendOnApp:              num("HourSpendOnApp"),
+      NumberOfDeviceRegistered:    int_("NumberOfDeviceRegistered"),
+      SatisfactionScore:           int_("SatisfactionScore"),
+      NumberOfAddress:             int_("NumberOfAddress"),
+      Complain:                    int_("Complain"),
+      OrderAmountHikeFromlastYear: num("OrderAmountHikeFromlastYear"),
+      CouponUsed:                  num("CouponUsed"),
+      OrderCount:                  num("OrderCount"),
+      DaySinceLastOrder:           num("DaySinceLastOrder"),
+      CashbackAmount:              num("CashbackAmount"),
+      CityTier:                    int_("CityTier"),
+      PreferredLoginDevice:        str("PreferredLoginDevice"),
+      PreferredPaymentMode:        str("PreferredPaymentMode"),
+      Gender:                      str("Gender"),
+      PreferedOrderCat:            str("PreferedOrderCat"),
+      MaritalStatus:               str("MaritalStatus"),
+    };
+  }
+
+  // ── Render results ───────────────────────────────────────────
+  function renderResults(data) {
+    const isChurn = data.churn_prediction === 1;
+    const prob    = data.churn_probability;
+    const risk    = data.risk_level;
+
+    // Show results, hide placeholder
+    document.getElementById("placeholder").style.display     = "none";
+    document.getElementById("results-content").style.display = "block";
+
+    // Verdict banner
+    const banner = document.getElementById("verdict-banner");
+    banner.className = `verdict ${isChurn ? "churn" : "no-churn"}`;
+    banner.innerHTML = `
+      <div class="verdict-left">
+        <h3>${isChurn ? "Will Churn" : "Will Not Churn"}</h3>
+        <p>Churn probability: <strong>${(prob * 100).toFixed(1)}%</strong></p>
+      </div>
+      <span class="risk-badge risk-${risk.toLowerCase()}">${risk} Risk</span>
+    `;
+
+    // Gauge
+    const pct   = Math.round(prob * 100);
+    const color = prob >= 0.7 ? "var(--danger)"
+                : prob >= 0.4 ? "var(--warning)"
+                :               "var(--success)";
+    document.getElementById("gauge-pct").textContent      = `${pct}%`;
+    document.getElementById("gauge-pct").style.color      = color;
+    document.getElementById("gauge-fill").style.width     = `${pct}%`;
+    document.getElementById("gauge-fill").style.background = color;
+
+    // SHAP features
+    const shapList  = document.getElementById("shap-list");
+    const maxAbsShap = Math.max(...data.top_shap_features.map(f => Math.abs(f.shap_value)));
+    shapList.innerHTML = data.top_shap_features.map(f => {
+      const isPos  = f.shap_value > 0;
+      const barPct = Math.round((Math.abs(f.shap_value) / maxAbsShap) * 100);
+      const barClr = isPos ? "var(--danger)" : "var(--success)";
+      return `
+        <div class="shap-item">
+          <div class="shap-item-top">
+            <span class="shap-feat-name">${f.feature}</span>
+            <span class="shap-value ${isPos ? "shap-pos" : "shap-neg"}">
+              ${isPos ? "+" : ""}${f.shap_value.toFixed(4)}
+            </span>
+          </div>
+          <div class="shap-bar-track">
+            <div class="shap-bar-fill"
+                 style="width:${barPct}%; background:${barClr};"></div>
+          </div>
+          <div class="shap-direction">${f.direction}</div>
+        </div>`;
+    }).join("");
+
+    // Recommendations
+    const recList = document.getElementById("rec-list");
+    recList.innerHTML = data.recommendations.map(r => `
+      <div class="rec-item priority-${r.priority}">
+        <div class="rec-header">
+          <span class="rec-driven">${r.driven_by.replace(/_/g," ")}</span>
+          <span class="rec-priority ${r.priority}">${r.priority}</span>
+        </div>
+        <p class="rec-text">${r.recommendation}</p>
+      </div>`).join("");
+  }
+
+  // ── Show loading state ───────────────────────────────────────
+  function showLoading() {
+    document.getElementById("placeholder").style.display     = "none";
+    document.getElementById("results-content").style.display = "none";
+
+    // Insert spinner temporarily
+    const panel = document.querySelector(".card:last-child") ||
+                  document.getElementById("result-panel").querySelector(".card");
+    let spinner = document.getElementById("spinner-wrap");
+    if (!spinner) {
+      spinner = document.createElement("div");
+      spinner.id = "spinner-wrap";
+      spinner.style.cssText = "display:flex;flex-direction:column;align-items:center;" +
+                              "justify-content:center;gap:16px;padding:40px;";
+      spinner.innerHTML = `<div class="spinner"></div>
+                           <p style="color:var(--text-muted);font-size:0.88rem;">
+                             Running prediction...</p>`;
+      document.getElementById("results-content").parentNode.appendChild(spinner);
+    }
+    spinner.style.display = "flex";
+  }
+
+  function hideLoading() {
+    const spinner = document.getElementById("spinner-wrap");
+    if (spinner) spinner.style.display = "none";
+  }
+
+  // ── Form submit ──────────────────────────────────────────────
+  document.getElementById("predict-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = document.getElementById("predict-btn");
+    btn.disabled = true;
+    btn.textContent = "Predicting...";
+    showLoading();
+
+    try {
+      const payload  = getFormPayload();
+      const response = await fetch(`${API}/predict`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      hideLoading();
+      renderResults(data);
+
+    } catch (err) {
+      hideLoading();
+      document.getElementById("placeholder").style.display = "none";
+      document.getElementById("results-content").style.display = "none";
+
+      // Show error
+      let errBox = document.getElementById("err-box");
+      if (!errBox) {
+        errBox = document.createElement("div");
+        errBox.id = "err-box";
+        errBox.className = "error-box";
+        document.getElementById("results-content").parentNode.appendChild(errBox);
+      }
+      errBox.style.display = "block";
+      errBox.textContent   = `Error: ${err.message}`;
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "Run Prediction";
+    }
+  });
+
+  // ── Init ─────────────────────────────────────────────────────
+  checkHealth();
+</script>
+</body>
+</html>
