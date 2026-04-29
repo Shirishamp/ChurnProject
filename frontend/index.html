@@ -1,822 +1,1399 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Customer Churn Predictor</title>
-  <style>
-    /* ── Reset & Base ────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ChurnIQ — Retention Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
 
-    :root {
-      --bg:         #0f1117;
-      --surface:    #1a1d27;
-      --surface2:   #222636;
-      --border:     #2e3250;
-      --accent:     #6c63ff;
-      --accent2:    #48cfad;
-      --danger:     #ff4757;
-      --warning:    #ffa502;
-      --success:    #2ed573;
-      --text:       #e8eaf6;
-      --text-muted: #7c83a8;
-      --radius:     12px;
-      --shadow:     0 4px 24px rgba(0,0,0,0.4);
-    }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 24px 16px;
-    }
+:root{
+  /* Backgrounds */
+  --ink:#f7f8fc;
+  --ink2:#ffffff;
+  --ink3:#f1f3f9;
 
-    /* ── Layout ──────────────────────────────────────────────── */
-    .page-wrapper {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+  /* Borders */
+  --border:#e4e7f2;
+  --border2:#d6dbeb;
 
-    header {
-      text-align: center;
-      margin-bottom: 36px;
-    }
+  /* Primary soft colors */
+  --neon:#6ee7b7;     /* soft mint */
+  --neon2:#8b9cff;    /* soft lavender */
+  --fire:#f87171;     /* soft coral */
+  --amber:#fbbf24;    /* soft amber */
+  --sky:#60a5fa;      /* soft blue */
 
-    header h1 {
-      font-size: 2rem;
-font-weight: 700;
-background: linear-gradient(135deg, var(--accent), var(--accent2));
-background-clip: text;
--webkit-background-clip: text;
-color: transparent;
--webkit-text-fill-color: transparent;
-margin-bottom: 8px;
-    }
+  /* Text */
+  --text:#1f2937;
+  --muted:#6b7280;
+  --muted2:#9aa3b2;
 
-    header p {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-    }
+  --r:14px;
+  --r2:10px;
+}
 
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-    }
+html{scroll-behavior:smooth}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--ink);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
 
-    @media (max-width: 860px) {
-      .main-grid { grid-template-columns: 1fr; }
-    }
+/* ── Animated background grid ── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(139,156,255,0.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(139,156,255,0.06) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;z-index:0;
+}
 
-    /* ── Card ────────────────────────────────────────────────── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      box-shadow: var(--shadow);
-    }
+/* ── Glow orbs ── */
+.orb{
+  position:fixed;border-radius:50%;filter:blur(120px);
+  pointer-events:none;z-index:0;opacity:0.18;
+}
+.orb1{background:#c7d2fe;}
+.orb2{background:#bbf7d0;}
 
-    .card h2 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
+.page{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:0 28px 60px}
 
-    /* ── Form ────────────────────────────────────────────────── */
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
+/* ── TOP NAV ── */
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px 0 16px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:36px;
+}
+.logo{
+  font-family:'Syne',sans-serif;
+  font-size:1.5rem;font-weight:800;
+  background:linear-gradient(135deg,var(--neon),var(--neon2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:-0.02em;
+}
+.logo span{font-weight:400;opacity:0.6;font-size:0.85rem;
+  -webkit-text-fill-color:var(--muted2);margin-left:8px;
+  font-family:'DM Sans',sans-serif;}
+.api-pill{
+  display:flex;align-items:center;gap:8px;
+  background:var(--ink3);border:1px solid var(--border2);
+  border-radius:99px;padding:6px 14px;font-size:0.78rem;color:var(--muted2);
+}
+.dot{width:7px;height:7px;border-radius:50%}
+.dot-green{background:var(--neon);box-shadow:0 0 8px var(--neon)}
+.dot-red{background:var(--fire);box-shadow:0 0 8px var(--fire)}
+.dot-pulse{background:var(--amber);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+/* ── UPLOAD ZONE ── */
+#upload-zone{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:260px;
+  border:2px dashed var(--border2);
+  border-radius:20px;
+  background:var(--ink2);
+  transition:all 0.25s;
+  cursor:pointer;
+  position:relative;overflow:hidden;
+  margin-bottom:40px;
+}
+#upload-zone::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(0,245,196,0.05),transparent 70%);
+}
+#upload-zone.drag-over{
+  border-color:var(--neon);
+  background:rgba(0,245,196,0.04);
+}
+#upload-zone:hover{border-color:var(--neon2)}
+.upload-icon{font-size:3rem;margin-bottom:12px;opacity:0.5}
+.upload-title{
+  font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700;
+  margin-bottom:6px;
+}
+.upload-sub{color:var(--muted2);font-size:0.88rem}
+.upload-sub span{color:var(--neon);font-weight:500}
+#file-input{display:none}
+.upload-btn{
+  margin-top:18px;
+  padding:10px 28px;
+  background:linear-gradient(135deg,var(--neon2),var(--neon));
+  border:none;border-radius:99px;
+  color:#fff;font-family:'Syne',sans-serif;
+  font-size:0.88rem;font-weight:700;
+  cursor:pointer;letter-spacing:0.04em;
+  transition:opacity 0.2s,transform 0.15s;
+}
+.upload-btn:hover{opacity:0.88;transform:translateY(-1px)}
 
-    .form-group label {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+/* ── LOADING ── */
+#loading{display:none;text-align:center;padding:60px 0}
+.spinner-ring{
+  width:56px;height:56px;
+  border:3px solid var(--border2);
+  border-top-color:var(--neon);
+  border-radius:50%;
+  animation:spin 0.9s linear infinite;
+  margin:0 auto 16px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{
+  font-family:'Syne',sans-serif;font-size:1rem;
+  color:var(--muted2);letter-spacing:0.06em;
+}
 
-    .form-group input,
-    .form-group select {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      padding: 10px 12px;
-      font-size: 0.9rem;
-      outline: none;
-      transition: border-color 0.2s;
-      width: 100%;
-    }
+/* ── DASHBOARD (hidden until data loaded) ── */
+#dashboard{display:none}
 
-    .form-group input:focus,
-    .form-group select:focus {
-      border-color: var(--accent);
-    }
+/* ── KPI STRIP ── */
+.kpi-strip{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;margin-bottom:28px;
+}
+@media(max-width:900px){.kpi-strip{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.kpi-strip{grid-template-columns:1fr}}
 
-    .form-group select option {
-      background: var(--surface2);
-    }
+.kpi{
+  background:var(--ink2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:22px 20px;
+  position:relative;overflow:hidden;
+  transition:transform 0.2s,border-color 0.2s;
+}
+.kpi:hover{transform:translateY(-3px);border-color:var(--border2)}
+.kpi::after{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:2px;
+}
+.kpi.k-teal::after{background:linear-gradient(90deg,var(--neon),transparent)}
+.kpi.k-purple::after{background:linear-gradient(90deg,var(--neon2),transparent)}
+.kpi.k-fire::after{background:linear-gradient(90deg,var(--fire),transparent)}
+.kpi.k-amber::after{background:linear-gradient(90deg,var(--amber),transparent)}
 
-    .btn-predict {
-      margin-top: 20px;
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--accent), #8b5cf6);
-      border: none;
-      border-radius: 10px;
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.04em;
-      transition: opacity 0.2s, transform 0.1s;
-    }
+.kpi-label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px}
+.kpi-value{
+  font-family:'Syne',sans-serif;font-size:2.2rem;font-weight:800;
+  line-height:1;margin-bottom:4px;
+}
+.kpi.k-teal  .kpi-value{color:var(--neon)}
+.kpi.k-purple .kpi-value{color:var(--neon2)}
+.kpi.k-fire  .kpi-value{color:var(--fire)}
+.kpi.k-amber .kpi-value{color:var(--amber)}
+.kpi-sub{font-size:0.78rem;color:var(--muted2)}
 
-    .btn-predict:hover  { opacity: 0.92; }
-    .btn-predict:active { transform: scale(0.98); }
-    .btn-predict:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ── SECTION LABEL ── */
+.section-label{
+  font-family:'Syne',sans-serif;
+  font-size:0.72rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.12em;
+  color:var(--muted);
+  margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-label::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
 
-    /* ── Result Panel ────────────────────────────────────────── */
-    #result-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
+/* ── GRID LAYOUTS ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:20px}
+.grid-13{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:20px}
+.grid-31{display:grid;grid-template-columns:1fr 1.4fr;gap:20px;margin-bottom:20px}
+@media(max-width:960px){.grid-2,.grid-3,.grid-13,.grid-31{grid-template-columns:1fr}}
 
-    .placeholder {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      min-height: 300px;
-      color: var(--text-muted);
-      gap: 12px;
-      text-align: center;
-    }
+/* ── CHART CARD ── */
+.chart-card{
+  background:var(--ink2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:20px;
+  position:relative;
+  transition:border-color 0.2s;
+}
+.chart-card:hover{border-color:var(--border2)}
+.chart-card.clickable{cursor:pointer}
+.chart-card.clickable:hover{border-color:var(--neon2)}
+.card-title{
+  font-family:'Syne',sans-serif;font-size:0.82rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.08em;
+  color:var(--muted2);margin-bottom:4px;
+}
+.card-hint{font-size:0.72rem;color:var(--muted);margin-bottom:14px}
+.click-hint{
+  font-size:0.68rem;color:var(--neon2);
+  margin-bottom:14px;letter-spacing:0.04em;
+}
 
-    .placeholder-icon {
-      font-size: 3rem;
-      opacity: 0.3;
-    }
+/* ── REASONS LIST ── */
+.reasons-list{display:flex;flex-direction:column;gap:10px}
+.reason-item{
+  background:var(--ink3);
+  border:1px solid var(--border);
+  border-radius:var(--r2);
+  padding:14px 16px;
+  display:flex;align-items:center;gap:14px;
+  cursor:pointer;
+  transition:border-color 0.2s,background 0.2s;
+}
+.reason-item:hover{border-color:var(--fire);background:rgba(255,77,109,0.06)}
+.reason-rank{
+  font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;
+  color:var(--fire);min-width:36px;
+}
+.reason-body{flex:1}
+.reason-feat{font-size:0.88rem;font-weight:500;color:var(--text);margin-bottom:2px}
+.reason-bar-track{background:var(--border);border-radius:99px;height:4px;margin-top:6px}
+.reason-bar-fill{height:4px;border-radius:99px;background:linear-gradient(90deg,var(--fire),var(--amber))}
+.reason-pct{
+  font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--fire);
+  min-width:44px;text-align:right;
+}
 
-    /* ── Verdict Banner ──────────────────────────────────────── */
-    .verdict {
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
+/* ── ACTIONS PANEL ── */
+.actions-list{display:flex;flex-direction:column;gap:10px}
+.action-item{
+  background:var(--ink3);border:1px solid var(--border);
+  border-radius:var(--r2);padding:14px 16px;
+  border-left:3px solid var(--neon2);
+}
+.action-count{
+  font-size:0.72rem;color:var(--neon2);
+  font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;
+}
+.action-text{font-size:0.84rem;color:var(--text);line-height:1.5}
 
-    .verdict.churn    { background: rgba(255,71,87,0.15);  border: 1px solid var(--danger);  }
-    .verdict.no-churn { background: rgba(46,213,115,0.12); border: 1px solid var(--success); }
+/* ── CUSTOMER TABLE ── */
+#customers-section{margin-top:20px}
+.table-controls{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;flex-wrap:wrap;gap:10px;
+}
+.search-box{
+  background:var(--ink3);border:1px solid var(--border2);
+  border-radius:8px;padding:8px 14px;
+  color:var(--text);font-size:0.84rem;outline:none;
+  width:220px;
+  transition:border-color 0.2s;
+}
+.search-box:focus{border-color:var(--neon2)}
+.filter-btns{display:flex;gap:8px;flex-wrap:wrap}
+.filter-btn{
+  padding:6px 14px;border-radius:99px;
+  border:1px solid var(--border2);
+  background:transparent;color:var(--muted2);
+  font-size:0.76rem;font-weight:600;cursor:pointer;
+  letter-spacing:0.04em;text-transform:uppercase;
+  transition:all 0.2s;
+}
+.filter-btn:hover,.filter-btn.active{
+  background:var(--neon2);border-color:var(--neon2);color:#fff;
+}
+.filter-btn.active-fire{background:var(--fire);border-color:var(--fire);color:#fff}
+.filter-btn.active-amber{background:var(--amber);border-color:var(--amber);color:#000}
+.filter-btn.active-teal{background:var(--neon);border-color:var(--neon);color:#000}
 
-    .verdict-left h3 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
+.table-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:0.83rem}
+thead th{
+  background:var(--ink3);
+  padding:11px 14px;
+  text-align:left;
+  font-family:'Syne',sans-serif;
+  font-size:0.7rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.08em;
+  color:var(--muted);
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+tbody tr{
+  border-bottom:1px solid var(--border);
+  transition:background 0.15s;
+  cursor:pointer;
+}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(123,108,255,0.06)}
+tbody td{padding:11px 14px;color:var(--text);white-space:nowrap}
 
-    .verdict.churn    .verdict-left h3 { color: var(--danger);  }
-    .verdict.no-churn .verdict-left h3 { color: var(--success); }
+.cid-link{
+  color:var(--neon2);font-weight:600;font-family:'Syne',sans-serif;
+  font-size:0.82rem;text-decoration:none;
+}
+.cid-link:hover{color:var(--neon);text-decoration:underline}
 
-    .verdict-left p { color: var(--text-muted); font-size: 0.88rem; }
+.badge{
+  display:inline-block;padding:3px 10px;
+  border-radius:99px;font-size:0.7rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.05em;
+}
+.badge-fire{background:rgba(255,77,109,0.15);color:var(--fire);border:1px solid rgba(255,77,109,0.3)}
+.badge-amber{background:rgba(255,181,71,0.15);color:var(--amber);border:1px solid rgba(255,181,71,0.3)}
+.badge-teal{background:rgba(0,245,196,0.12);color:var(--neon);border:1px solid rgba(0,245,196,0.25)}
+.badge-churn{background:rgba(255,77,109,0.12);color:var(--fire)}
+.badge-ok{background:rgba(0,245,196,0.1);color:var(--neon)}
 
-    .risk-badge {
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      white-space: nowrap;
-    }
+.prob-bar{display:flex;align-items:center;gap:8px}
+.prob-mini{
+  flex:1;height:5px;background:var(--border);
+  border-radius:99px;overflow:hidden;min-width:60px;
+}
+.prob-mini-fill{height:100%;border-radius:99px}
+.prob-val{font-size:0.78rem;font-weight:600;min-width:36px;text-align:right}
 
-    .risk-high   { background: rgba(255,71,87,0.2);   color: var(--danger);  border: 1px solid var(--danger);  }
-    .risk-medium { background: rgba(255,165,2,0.2);   color: var(--warning); border: 1px solid var(--warning); }
-    .risk-low    { background: rgba(46,213,115,0.15); color: var(--success); border: 1px solid var(--success); }
+.pagination{
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;margin-top:16px;flex-wrap:wrap;
+}
+.page-btn{
+  padding:6px 12px;border-radius:8px;
+  border:1px solid var(--border2);
+  background:transparent;color:var(--muted2);
+  font-size:0.8rem;cursor:pointer;transition:all 0.2s;
+}
+.page-btn:hover,.page-btn.active{
+  background:var(--neon2);border-color:var(--neon2);color:#fff;
+}
+.page-info{font-size:0.78rem;color:var(--muted);padding:0 8px}
 
-    /* ── Probability Gauge ───────────────────────────────────── */
-    .gauge-wrap {
-      background: var(--surface2);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      border: 1px solid var(--border);
-    }
+/* ── MODAL ── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.75);
+  z-index:1000;
+  align-items:center;justify-content:center;
+  backdrop-filter:blur(6px);
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--ink2);
+  border:1px solid var(--border2);
+  border-radius:20px;
+  width:min(860px,95vw);
+  max-height:90vh;
+  overflow-y:auto;
+  padding:32px;
+  position:relative;
+  animation:modal-in 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes modal-in{
+  from{opacity:0;transform:translateY(20px) scale(0.97)}
+  to{opacity:1;transform:none}
+}
+.modal-close{
+  position:absolute;top:20px;right:20px;
+  background:var(--ink3);border:1px solid var(--border2);
+  border-radius:8px;width:34px;height:34px;
+  color:var(--muted2);font-size:1.1rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;
+}
+.modal-close:hover{background:var(--fire);color:#fff;border-color:var(--fire)}
+.modal-header{margin-bottom:24px}
+.modal-cid{
+  font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;
+  color:var(--neon2);margin-bottom:6px;
+}
+.modal-verdict{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.modal-prob{
+  font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;
+}
 
-    .gauge-label {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+@media(max-width:600px){.modal-grid{grid-template-columns:1fr}}
 
-    .gauge-label span:first-child {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
+.modal-section-title{
+  font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);
+  margin-bottom:12px;
+  padding-bottom:8px;border-bottom:1px solid var(--border);
+}
 
-    .gauge-pct {
-      font-size: 1.3rem;
-      font-weight: 700;
-    }
+.profile-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+}
+.profile-item{
+  background:var(--ink3);border-radius:8px;padding:10px 12px;
+}
+.profile-key{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px}
+.profile-val{font-size:0.88rem;color:var(--text);font-weight:500}
 
-    .gauge-track {
-      background: var(--border);
-      border-radius: 99px;
-      height: 10px;
-      overflow: hidden;
-    }
+.shap-modal-list{display:flex;flex-direction:column;gap:8px}
+.shap-modal-item{
+  background:var(--ink3);border-radius:8px;padding:12px 14px;
+}
+.shap-modal-top{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;
+}
+.shap-modal-feat{font-size:0.84rem;font-weight:500}
+.shap-modal-val{
+  font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:20px;
+}
+.s-pos{background:rgba(255,77,109,0.15);color:var(--fire)}
+.s-neg{background:rgba(0,245,196,0.12);color:var(--neon)}
+.shap-track{background:var(--border);border-radius:99px;height:4px;overflow:hidden}
+.shap-fill{height:100%;border-radius:99px}
+.shap-dir{font-size:0.72rem;color:var(--muted);margin-top:4px}
 
-    .gauge-fill {
-      height: 100%;
-      border-radius: 99px;
-      transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
-    }
+.rec-modal-list{display:flex;flex-direction:column;gap:8px}
+.rec-modal-item{
+  border-radius:8px;padding:12px 14px;
+  border-left:3px solid var(--border2);
+  background:var(--ink3);
+}
+.rec-modal-item.rp-High{border-color:var(--fire);background:rgba(255,77,109,0.06)}
+.rec-modal-item.rp-Medium{border-color:var(--amber);background:rgba(255,181,71,0.05)}
+.rec-modal-item.rp-Low{border-color:var(--neon2);background:rgba(123,108,255,0.05)}
+.rec-modal-driven{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px}
+.rec-modal-text{font-size:0.84rem;color:var(--text);line-height:1.5}
 
-    /* ── SHAP Features ───────────────────────────────────────── */
-    .shap-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+/* ── CUSTOMER LIST MODAL ── */
+.list-modal{
+  background:var(--ink2);
+  border:1px solid var(--border2);
+  border-radius:20px;
+  width:min(700px,95vw);
+  max-height:80vh;overflow-y:auto;
+  padding:28px;
+  position:relative;
+  animation:modal-in 0.25s ease;
+}
+.list-modal-title{
+  font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;
+  color:var(--neon);margin-bottom:6px;
+}
+.list-modal-sub{font-size:0.82rem;color:var(--muted2);margin-bottom:20px}
+.clist{display:flex;flex-direction:column;gap:8px}
+.clist-item{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--ink3);border:1px solid var(--border);
+  border-radius:10px;padding:12px 16px;
+  cursor:pointer;transition:border-color 0.2s;
+}
+.clist-item:hover{border-color:var(--neon2)}
+.clist-id{
+  font-family:'Syne',sans-serif;font-weight:700;
+  font-size:0.9rem;color:var(--neon2);
+}
+.clist-prob{font-size:0.82rem;color:var(--muted2)}
+.clist-right{display:flex;align-items:center;gap:10px}
 
-    .shap-item {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 16px;
-    }
+/* ── TAB bar ── */
+.tab-bar{
+  display:flex;gap:4px;
+  background:var(--ink3);border:1px solid var(--border);
+  border-radius:10px;padding:4px;
+  margin-bottom:24px;
+  width:fit-content;
+}
+.tab{
+  padding:8px 20px;border-radius:7px;
+  font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.06em;
+  color:var(--muted2);cursor:pointer;transition:all 0.2s;
+  border:none;background:none;
+}
+.tab.active{background:var(--neon2);color:#fff}
 
-    .shap-item-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-    }
+/* ── scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--ink2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:var(--neon2)}
 
-    .shap-feat-name {
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .shap-value {
-      font-size: 0.82rem;
-      font-weight: 700;
-      padding: 2px 10px;
-      border-radius: 20px;
-    }
-
-    .shap-pos { background: rgba(255,71,87,0.15);   color: var(--danger);  }
-    .shap-neg { background: rgba(46,213,115,0.15);  color: var(--success); }
-
-    .shap-bar-track {
-      background: var(--border);
-      border-radius: 99px;
-      height: 5px;
-      overflow: hidden;
-    }
-
-    .shap-bar-fill {
-      height: 100%;
-      border-radius: 99px;
-    }
-
-    .shap-direction {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 5px;
-    }
-
-    /* ── Recommendations ─────────────────────────────────────── */
-    .rec-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .rec-item {
-      border-radius: 10px;
-      padding: 14px 16px;
-      border-left: 4px solid;
-      background: var(--surface2);
-      border-color: var(--border);
-    }
-
-    .rec-item.priority-High   { border-color: var(--danger);  background: rgba(255,71,87,0.07);  }
-    .rec-item.priority-Medium { border-color: var(--warning); background: rgba(255,165,2,0.07);  }
-    .rec-item.priority-Low    { border-color: var(--accent);  background: rgba(108,99,255,0.07); }
-
-    .rec-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-    }
-
-    .rec-driven {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .rec-priority {
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 20px;
-      text-transform: uppercase;
-    }
-
-    .rec-priority.High   { background: rgba(255,71,87,0.2);  color: var(--danger);  }
-    .rec-priority.Medium { background: rgba(255,165,2,0.2);  color: var(--warning); }
-    .rec-priority.Low    { background: rgba(108,99,255,0.2); color: var(--accent);  }
-
-    .rec-text {
-      font-size: 0.88rem;
-      color: var(--text);
-      line-height: 1.55;
-    }
-
-    /* ── API Status ──────────────────────────────────────────── */
-    .api-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-    }
-
-    .dot.green  { background: var(--success); box-shadow: 0 0 6px var(--success); }
-    .dot.red    { background: var(--danger);  box-shadow: 0 0 6px var(--danger);  }
-    .dot.yellow { background: var(--warning); animation: pulse 1s infinite; }
-
-    @keyframes pulse {
-      0%,100% { opacity: 1; }
-      50%      { opacity: 0.4; }
-    }
-
-    /* ── Spinner ─────────────────────────────────────────────── */
-    .spinner {
-      width: 40px; height: 40px;
-      border: 4px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Error box ───────────────────────────────────────────── */
-    .error-box {
-      background: rgba(255,71,87,0.1);
-      border: 1px solid var(--danger);
-      border-radius: var(--radius);
-      padding: 16px;
-      color: var(--danger);
-      font-size: 0.88rem;
-    }
-
-    /* ── Footer ──────────────────────────────────────────────── */
-    footer {
-      text-align: center;
-      margin-top: 36px;
-      color: var(--text-muted);
-      font-size: 0.78rem;
-    }
-  </style>
+/* ── Gauge ring ── */
+.gauge-ring-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.gauge-ring-wrap canvas{display:block}
+.gauge-ring-val{
+  font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;
+  margin-top:-4px;
+}
+.gauge-ring-label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+</style>
 </head>
-
 <body>
-<div class="page-wrapper">
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
 
-  <!-- Header -->
-  <header>
-    <h1>Customer Churn Predictor</h1>
-    <p>XGBoost + SHAP Explainability &nbsp;|&nbsp; E-Commerce Retention Intelligence</p>
-    <div class="api-status" id="api-status" style="justify-content:center; margin-top:10px;">
-      <div class="dot yellow" id="status-dot"></div>
-      <span id="status-text">Connecting to API...</span>
-    </div>
-  </header>
+<div class="page">
 
-  <div class="main-grid">
+<!-- NAV -->
+<nav>
+  <div>
+    <div class="logo">ChurnIQ<span>Retention Intelligence</span></div>
+  </div>
+  <div class="api-pill">
+    <div class="dot dot-pulse" id="dot"></div>
+    <span id="api-label">Connecting...</span>
+  </div>
+</nav>
 
-    <!-- LEFT: Input Form -->
-    <div class="card">
-      <h2>Customer Profile</h2>
-      <form id="predict-form" autocomplete="off">
-        <div class="form-grid">
+<!-- UPLOAD -->
+<div id="upload-zone" onclick="document.getElementById('file-input').click()">
+  <div class="upload-icon">&#x1F4C1;</div>
+  <div class="upload-title">Drop your customer dataset here</div>
+  <div class="upload-sub">Supports <span>CSV</span> and <span>XLSX</span> &nbsp;·&nbsp; Same format as training data &nbsp;·&nbsp; Up to 10,000 rows</div>
+  <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">
+    Choose File
+  </button>
+  <input type="file" id="file-input" accept=".csv,.xlsx,.xls"/>
+</div>
 
-          <!-- Numerical inputs -->
-          <div class="form-group">
-            <label>Tenure (months)</label>
-            <input type="number" id="Tenure" placeholder="e.g. 4" step="0.1" min="0"/>
-          </div>
-          <div class="form-group">
-            <label>Warehouse to Home (km)</label>
-            <input type="number" id="WarehouseToHome" placeholder="e.g. 6" step="0.1" min="0"/>
-          </div>
-          <div class="form-group">
-            <label>Hours on App / Day</label>
-            <input type="number" id="HourSpendOnApp" placeholder="e.g. 3" step="0.1" min="0"/>
-          </div>
-          <div class="form-group">
-            <label>Devices Registered</label>
-            <input type="number" id="NumberOfDeviceRegistered" placeholder="e.g. 3" min="1" required/>
-          </div>
-          <div class="form-group">
-            <label>Satisfaction Score (1-5)</label>
-            <input type="number" id="SatisfactionScore" placeholder="1 to 5" min="1" max="5" required/>
-          </div>
-          <div class="form-group">
-            <label>Number of Addresses</label>
-            <input type="number" id="NumberOfAddress" placeholder="e.g. 9" min="0" required/>
-          </div>
-          <div class="form-group">
-            <label>Raised Complaint?</label>
-            <select id="Complain" required>
-              <option value="">-- Select --</option>
-              <option value="1">Yes</option>
-              <option value="0">No</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Order Hike from Last Year (%)</label>
-            <input type="number" id="OrderAmountHikeFromlastYear" placeholder="e.g. 11" step="0.1"/>
-          </div>
-          <div class="form-group">
-            <label>Coupons Used (last month)</label>
-            <input type="number" id="CouponUsed" placeholder="e.g. 1" step="0.1" min="0"/>
-          </div>
-          <div class="form-group">
-            <label>Order Count (last month)</label>
-            <input type="number" id="OrderCount" placeholder="e.g. 1" step="0.1" min="0"/>
-          </div>
-          <div class="form-group">
-            <label>Days Since Last Order</label>
-            <input type="number" id="DaySinceLastOrder" placeholder="e.g. 5" step="0.1" min="0"/>
-          </div>
-          <div class="form-group">
-            <label>Cashback Amount (INR)</label>
-            <input type="number" id="CashbackAmount" placeholder="e.g. 159.93" step="0.01" min="0" required/>
-          </div>
-          <div class="form-group">
-            <label>City Tier</label>
-            <select id="CityTier" required>
-              <option value="">-- Select --</option>
-              <option value="1">Tier 1</option>
-              <option value="2">Tier 2</option>
-              <option value="3">Tier 3</option>
-            </select>
-          </div>
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner-ring"></div>
+  <div class="loading-text" id="loading-text">ANALYSING CUSTOMERS...</div>
+</div>
 
-          <!-- Categorical inputs -->
-          <div class="form-group">
-            <label>Preferred Login Device</label>
-            <select id="PreferredLoginDevice" required>
-              <option value="">-- Select --</option>
-              <option>Mobile Phone</option>
-              <option>Phone</option>
-              <option>Computer</option>
-              <option>Tablet</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Preferred Payment Mode</label>
-            <select id="PreferredPaymentMode" required>
-              <option value="">-- Select --</option>
-              <option>Debit Card</option>
-              <option>Credit Card</option>
-              <option>UPI</option>
-              <option>Cash on Delivery</option>
-              <option>E wallet</option>
-              <option>CC</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Gender</label>
-            <select id="Gender" required>
-              <option value="">-- Select --</option>
-              <option>Male</option>
-              <option>Female</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Preferred Order Category</label>
-            <select id="PreferedOrderCat" required>
-              <option value="">-- Select --</option>
-              <option>Laptop &amp; Accessory</option>
-              <option>Mobile</option>
-              <option>Mobile Phone</option>
-              <option>Fashion</option>
-              <option>Grocery</option>
-              <option>Others</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Marital Status</label>
-            <select id="MaritalStatus" required>
-              <option value="">-- Select --</option>
-              <option>Single</option>
-              <option>Married</option>
-              <option>Divorced</option>
-            </select>
-          </div>
+<!-- DASHBOARD -->
+<div id="dashboard">
 
-        </div><!-- /form-grid -->
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('segments')">Segments</button>
+    <button class="tab" onclick="switchTab('actions')">Actions</button>
+    <button class="tab" onclick="switchTab('customers')">Customers</button>
+  </div>
 
-        <button type="submit" class="btn-predict" id="predict-btn">
-          Run Prediction
-        </button>
-      </form>
-    </div><!-- /left card -->
+  <!-- TAB: OVERVIEW -->
+  <div id="tab-overview">
 
-    <!-- RIGHT: Results -->
-    <div id="result-panel">
-      <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:center;">
-        <div class="placeholder" id="placeholder">
-          <div class="placeholder-icon">&#x1F4CA;</div>
-          <p>Fill in the customer profile<br/>and click <strong>Run Prediction</strong></p>
-        </div>
-        <div id="results-content" style="display:none;">
-
-          <!-- Verdict -->
-          <div id="verdict-banner" class="verdict"></div>
-
-          <!-- Probability Gauge -->
-          <div class="gauge-wrap" style="margin-top:16px;">
-            <div class="gauge-label">
-              <span>Churn Probability</span>
-              <span class="gauge-pct" id="gauge-pct">0%</span>
-            </div>
-            <div class="gauge-track">
-              <div class="gauge-fill" id="gauge-fill" style="width:0%;"></div>
-            </div>
-          </div>
-
-          <!-- SHAP Features -->
-          <div style="margin-top:20px;">
-            <h2 style="font-size:0.82rem; color:var(--text-muted); text-transform:uppercase;
-                       letter-spacing:0.08em; margin-bottom:12px; padding-bottom:8px;
-                       border-bottom:1px solid var(--border);">
-              Top Driving Factors (SHAP)
-            </h2>
-            <div class="shap-list" id="shap-list"></div>
-          </div>
-
-          <!-- Recommendations -->
-          <div style="margin-top:20px;">
-            <h2 style="font-size:0.82rem; color:var(--text-muted); text-transform:uppercase;
-                       letter-spacing:0.08em; margin-bottom:12px; padding-bottom:8px;
-                       border-bottom:1px solid var(--border);">
-              Retention Recommendations
-            </h2>
-            <div class="rec-list" id="rec-list"></div>
-          </div>
-
-        </div><!-- /results-content -->
+    <!-- KPIs -->
+    <div class="kpi-strip">
+      <div class="kpi k-teal">
+        <div class="kpi-label">Total Customers</div>
+        <div class="kpi-value" id="kpi-total">—</div>
+        <div class="kpi-sub">in uploaded file</div>
       </div>
-    </div><!-- /right panel -->
+      <div class="kpi k-fire">
+        <div class="kpi-label">Predicted to Churn</div>
+        <div class="kpi-value" id="kpi-churn">—</div>
+        <div class="kpi-sub" id="kpi-churn-pct">—% churn rate</div>
+      </div>
+      <div class="kpi k-amber">
+        <div class="kpi-label">At Risk — Next Month</div>
+        <div class="kpi-value" id="kpi-1mo">—</div>
+        <div class="kpi-sub" id="kpi-1mo-pct">— % of base</div>
+      </div>
+      <div class="kpi k-purple">
+        <div class="kpi-label">Action Required</div>
+        <div class="kpi-value" id="kpi-action-pct">—%</div>
+        <div class="kpi-sub">customers need intervention</div>
+      </div>
+    </div>
 
-  </div><!-- /main-grid -->
+    <div class="section-label">Churn Risk Breakdown</div>
 
-  <footer>
-    <p>Churn Prediction System &nbsp;|&nbsp; XGBoost + SHAP &nbsp;|&nbsp; FastAPI Backend &nbsp;|&nbsp;
-      <span id="footer-auc"></span>
-    </p>
-  </footer>
+    <div class="grid-13">
+      <!-- Donut: timeline -->
+      <div class="chart-card clickable" id="timeline-card">
+        <div class="card-title">Churn Timeline Distribution</div>
+        <div class="click-hint">&#x1F4CC; Click segment to see customer list</div>
+        <canvas id="chart-timeline" height="220"></canvas>
+      </div>
+      <!-- Donut: risk level -->
+      <div class="chart-card clickable" id="risk-card">
+        <div class="card-title">Risk Level Distribution</div>
+        <div class="click-hint">&#x1F4CC; Click segment to see customer list</div>
+        <canvas id="chart-risk" height="220"></canvas>
+      </div>
+    </div>
 
-</div><!-- /page-wrapper -->
+    <div class="section-label">Probability Distribution & Top Churn Reasons</div>
+
+    <div class="grid-31">
+      <!-- Histogram -->
+      <div class="chart-card">
+        <div class="card-title">Churn Probability Histogram</div>
+        <div class="card-hint">Distribution across all customers</div>
+        <canvas id="chart-hist" height="200"></canvas>
+      </div>
+      <!-- Top reasons -->
+      <div class="chart-card">
+        <div class="card-title">Top 3 Reasons for Churn</div>
+        <div class="click-hint">&#x1F4CC; Click reason to see affected customers</div>
+        <div class="reasons-list" id="reasons-list"></div>
+      </div>
+    </div>
+
+  </div><!-- /tab-overview -->
+
+  <!-- TAB: SEGMENTS -->
+  <div id="tab-segments" style="display:none">
+    <div class="section-label">Churn Rate by Customer Segment</div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="card-title">By Gender</div>
+        <canvas id="chart-gender" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">By City Tier</div>
+        <canvas id="chart-city" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="card-title">By Marital Status</div>
+        <canvas id="chart-marital" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">By Login Device</div>
+        <canvas id="chart-device" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="card-title">By Payment Mode</div>
+        <canvas id="chart-payment" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">By Order Category</div>
+        <canvas id="chart-ordercat" height="200"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:20px">
+      <div class="card-title">Satisfaction Score — Churned vs Retained</div>
+      <canvas id="chart-sat" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB: ACTIONS -->
+  <div id="tab-actions" style="display:none">
+    <div class="section-label">Recommended Actions to Prevent Next-Month Churn</div>
+    <div class="chart-card" style="margin-bottom:20px">
+      <div class="card-title">Top Retention Actions</div>
+      <div class="card-hint" id="action-subtitle">Prioritised interventions for at-risk customers</div>
+      <div class="actions-list" id="actions-list"></div>
+    </div>
+
+    <div class="section-label">Action Impact Overview</div>
+    <div class="chart-card">
+      <div class="card-title">Customers Affected per Action</div>
+      <canvas id="chart-actions" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB: CUSTOMERS -->
+  <div id="tab-customers" style="display:none">
+    <div id="customers-section">
+      <div class="table-controls">
+        <input class="search-box" type="text" id="search-input" placeholder="Search customer ID..."/>
+        <div class="filter-btns">
+          <button class="filter-btn active" onclick="filterTable('all',this)">All</button>
+          <button class="filter-btn" onclick="filterTable('churn',this)">Will Churn</button>
+          <button class="filter-btn" onclick="filterTable('1 Month',this)">1 Month</button>
+          <button class="filter-btn" onclick="filterTable('3 Months',this)">3 Months</button>
+          <button class="filter-btn" onclick="filterTable('High',this)">High Risk</button>
+          <button class="filter-btn" onclick="filterTable('Medium',this)">Medium Risk</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Customer ID</th>
+              <th>Prediction</th>
+              <th>Churn Prob.</th>
+              <th>Risk</th>
+              <th>Timeline</th>
+              <th>Top Factor</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
+
+</div><!-- /page -->
+
+<!-- CUSTOMER DETAIL MODAL -->
+<div class="modal-overlay" id="customer-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('customer-modal')">&#x2715;</button>
+    <div class="modal-header">
+      <div class="modal-cid" id="m-cid">—</div>
+      <div class="modal-verdict">
+        <span class="badge" id="m-badge">—</span>
+        <span class="modal-prob" id="m-prob">—</span>
+        <span class="badge" id="m-timeline">—</span>
+      </div>
+    </div>
+    <div class="modal-grid">
+      <div>
+        <div class="modal-section-title">Customer Profile</div>
+        <div class="profile-grid" id="m-profile"></div>
+      </div>
+      <div>
+        <div class="modal-section-title">SHAP Drivers (Why this prediction?)</div>
+        <div class="shap-modal-list" id="m-shap"></div>
+      </div>
+    </div>
+    <div>
+      <div class="modal-section-title">Personalised Retention Recommendations</div>
+      <div class="rec-modal-list" id="m-recs"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOMER LIST MODAL (from chart click) -->
+<div class="modal-overlay" id="list-modal">
+  <div class="list-modal">
+    <button class="modal-close" onclick="closeModal('list-modal')">&#x2715;</button>
+    <div class="list-modal-title" id="lm-title">Customers</div>
+    <div class="list-modal-sub" id="lm-sub"></div>
+    <div class="clist" id="lm-list"></div>
+  </div>
+</div>
 
 <script>
-  const API = "http://localhost:8000";
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+const API = "http://localhost:8000";
+let G = {
+  data: null,         // full API response
+  customers: [],      // flat array
+  filtered: [],       // after filter/search
+  currentPage: 1,
+  pageSize: 20,
+  charts: {},         // Chart.js instances
+};
 
-  // ── Check API health on load ─────────────────────────────────
-  async function checkHealth() {
-    const dot  = document.getElementById("status-dot");
-    const text = document.getElementById("status-text");
-    try {
-      const res  = await fetch(`${API}/health`);
-      const data = await res.json();
-      dot.className  = "dot green";
-      text.textContent = `API Online  |  ${data.model}  |  Test AUC: ${data.test_auc.toFixed(4)}  |  CV AUC: ${data.cv_auc.toFixed(4)}`;
-      document.getElementById("footer-auc").textContent =
-        `Test AUC: ${data.test_auc.toFixed(4)}`;
-    } catch {
-      dot.className  = "dot red";
-      text.textContent = "API Offline — make sure uvicorn is running on port 8000";
+// ═══════════════════════════════════════════════════════════
+// HEALTH CHECK
+// ═══════════════════════════════════════════════════════════
+async function checkHealth() {
+  const dot = document.getElementById("dot");
+  const lbl = document.getElementById("api-label");
+  try {
+    const r = await fetch(`${API}/health`);
+    const d = await r.json();
+    dot.className = "dot dot-green";
+    lbl.textContent = `${d.model} · AUC ${d.test_auc.toFixed(4)} · CV ${d.cv_auc.toFixed(4)}`;
+  } catch {
+    dot.className = "dot dot-red";
+    lbl.textContent = "API Offline — start uvicorn on port 8000";
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// FILE UPLOAD
+// ═══════════════════════════════════════════════════════════
+const zone  = document.getElementById("upload-zone");
+const finput= document.getElementById("file-input");
+
+zone.addEventListener("dragover",  e => { e.preventDefault(); zone.classList.add("drag-over"); });
+zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+zone.addEventListener("drop", e => {
+  e.preventDefault(); zone.classList.remove("drag-over");
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+finput.addEventListener("change", e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+async function handleFile(file) {
+  document.getElementById("upload-zone").style.display = "none";
+  document.getElementById("loading").style.display     = "block";
+  document.getElementById("dashboard").style.display   = "none";
+
+  const steps = [
+    "PARSING FILE...", "RUNNING XGBOOST...",
+    "COMPUTING SHAP VALUES...", "BUILDING ANALYTICS..."
+  ];
+  let si = 0;
+  const lt = document.getElementById("loading-text");
+  const iv = setInterval(() => { lt.textContent = steps[Math.min(++si, steps.length-1)]; }, 900);
+
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const r = await fetch(`${API}/predict/batch-analyze`, { method:"POST", body:form });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || `HTTP ${r.status}`);
     }
+    const data = await r.json();
+    clearInterval(iv);
+    G.data      = data;
+    G.customers = data.customers;
+    G.filtered  = [...G.customers];
+
+    document.getElementById("loading").style.display   = "none";
+    document.getElementById("dashboard").style.display = "block";
+
+    renderDashboard(data);
+
+  } catch(e) {
+    clearInterval(iv);
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("upload-zone").style.display = "flex";
+    zone.classList.add("drag-over");
+    zone.querySelector(".upload-title").textContent = "Error: " + e.message;
+    setTimeout(() => {
+      zone.classList.remove("drag-over");
+      zone.querySelector(".upload-title").textContent = "Drop your customer dataset here";
+    }, 4000);
   }
+}
 
-  // ── Build request payload from form ─────────────────────────
-  function getFormPayload() {
-    const num = (id) => {
-      const v = document.getElementById(id).value;
-      return v === "" ? null : parseFloat(v);
-    };
-    const int_ = (id) => {
-      const v = document.getElementById(id).value;
-      return v === "" ? null : parseInt(v);
-    };
-    const str = (id) => {
-      const v = document.getElementById(id).value;
-      return v === "" ? null : v;
-    };
+// ═══════════════════════════════════════════════════════════
+// RENDER DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function renderDashboard(data) {
+  const m = data.meta;
 
-    return {
-      Tenure:                      num("Tenure"),
-      WarehouseToHome:             num("WarehouseToHome"),
-      HourSpendOnApp:              num("HourSpendOnApp"),
-      NumberOfDeviceRegistered:    int_("NumberOfDeviceRegistered"),
-      SatisfactionScore:           int_("SatisfactionScore"),
-      NumberOfAddress:             int_("NumberOfAddress"),
-      Complain:                    int_("Complain"),
-      OrderAmountHikeFromlastYear: num("OrderAmountHikeFromlastYear"),
-      CouponUsed:                  num("CouponUsed"),
-      OrderCount:                  num("OrderCount"),
-      DaySinceLastOrder:           num("DaySinceLastOrder"),
-      CashbackAmount:              num("CashbackAmount"),
-      CityTier:                    int_("CityTier"),
-      PreferredLoginDevice:        str("PreferredLoginDevice"),
-      PreferredPaymentMode:        str("PreferredPaymentMode"),
-      Gender:                      str("Gender"),
-      PreferedOrderCat:            str("PreferedOrderCat"),
-      MaritalStatus:               str("MaritalStatus"),
-    };
-  }
+  // KPIs
+  document.getElementById("kpi-total").textContent      = m.total_customers.toLocaleString();
+  document.getElementById("kpi-churn").textContent      = m.total_churners.toLocaleString();
+  document.getElementById("kpi-churn-pct").textContent  = `${m.churn_rate_pct}% churn rate`;
+  document.getElementById("kpi-1mo").textContent        = m.at_risk_count.toLocaleString();
+  document.getElementById("kpi-1mo-pct").textContent    = `${m.action_pct}% of base`;
+  document.getElementById("kpi-action-pct").textContent = `${m.action_pct}%`;
 
-  // ── Render results ───────────────────────────────────────────
-  function renderResults(data) {
-    const isChurn = data.churn_prediction === 1;
-    const prob    = data.churn_probability;
-    const risk    = data.risk_level;
+  // Charts
+  buildTimelineChart(data.timeline_buckets, data.customers);
+  buildRiskChart(data.risk_distribution, data.customers);
+  buildHistogram(data.prob_histogram);
+  buildReasons(data.top_reasons, data.customers);
+  buildSegmentCharts(data.segments, data.satisfaction_dist);
+  buildActionsPanel(data.top_actions, m);
+  buildActionsChart(data.top_actions);
 
-    // Show results, hide placeholder
-    document.getElementById("placeholder").style.display     = "none";
-    document.getElementById("results-content").style.display = "block";
+  // Table
+  renderTable();
+}
 
-    // Verdict banner
-    const banner = document.getElementById("verdict-banner");
-    banner.className = `verdict ${isChurn ? "churn" : "no-churn"}`;
-    banner.innerHTML = `
-      <div class="verdict-left">
-        <h3>${isChurn ? "Will Churn" : "Will Not Churn"}</h3>
-        <p>Churn probability: <strong>${(prob * 100).toFixed(1)}%</strong></p>
-      </div>
-      <span class="risk-badge risk-${risk.toLowerCase()}">${risk} Risk</span>
-    `;
+// ── colour palettes ──
+const C = {
+  teal:    "#4f8cff",  // muted aqua
+  purple: "#8c8fe6",  // soft indigo
+  fire:   "#e07a7a",  // toned-down red
+  amber:  "#d9b86c",  // warm muted gold
+  sky:    "#6fa3d9",  // calm blue
+  muted:  "#6b7280",
+};
+const TIMELINE_COLORS = {
+  "1 Month":  C.fire,
+  "3 Months": C.amber,
+  "6 Months": C.sky,
+  "Stable":   C.teal,
+};
+const RISK_COLORS = { High: C.fire, Medium: C.amber, Low: C.teal };
 
-    // Gauge
-    const pct   = Math.round(prob * 100);
-    const color = prob >= 0.7 ? "var(--danger)"
-                : prob >= 0.4 ? "var(--warning)"
-                :               "var(--success)";
-    document.getElementById("gauge-pct").textContent      = `${pct}%`;
-    document.getElementById("gauge-pct").style.color      = color;
-    document.getElementById("gauge-fill").style.width     = `${pct}%`;
-    document.getElementById("gauge-fill").style.background = color;
+function destroyChart(id) {
+  if (G.charts[id]) { G.charts[id].destroy(); delete G.charts[id]; }
+}
 
-    // SHAP features
-    const shapList  = document.getElementById("shap-list");
-    const maxAbsShap = Math.max(...data.top_shap_features.map(f => Math.abs(f.shap_value)));
-    shapList.innerHTML = data.top_shap_features.map(f => {
-      const isPos  = f.shap_value > 0;
-      const barPct = Math.round((Math.abs(f.shap_value) / maxAbsShap) * 100);
-      const barClr = isPos ? "var(--danger)" : "var(--success)";
-      return `
-        <div class="shap-item">
-          <div class="shap-item-top">
-            <span class="shap-feat-name">${f.feature}</span>
-            <span class="shap-value ${isPos ? "shap-pos" : "shap-neg"}">
-              ${isPos ? "+" : ""}${f.shap_value.toFixed(4)}
-            </span>
-          </div>
-          <div class="shap-bar-track">
-            <div class="shap-bar-fill"
-                 style="width:${barPct}%; background:${barClr};"></div>
-          </div>
-          <div class="shap-direction">${f.direction}</div>
-        </div>`;
-    }).join("");
+// ── Timeline donut ──
+function buildTimelineChart(buckets, customers) {
+  destroyChart("timeline");
+  const labels = Object.keys(buckets);
+  const values = Object.values(buckets);
+  const colors = labels.map(l => TIMELINE_COLORS[l] + "cc");
 
-    // Recommendations
-    const recList = document.getElementById("rec-list");
-    recList.innerHTML = data.recommendations.map(r => `
-      <div class="rec-item priority-${r.priority}">
-        <div class="rec-header">
-          <span class="rec-driven">${r.driven_by.replace(/_/g," ")}</span>
-          <span class="rec-priority ${r.priority}">${r.priority}</span>
-        </div>
-        <p class="rec-text">${r.recommendation}</p>
-      </div>`).join("");
-  }
-
-  // ── Show loading state ───────────────────────────────────────
-  function showLoading() {
-    document.getElementById("placeholder").style.display     = "none";
-    document.getElementById("results-content").style.display = "none";
-
-    // Insert spinner temporarily
-    const panel = document.querySelector(".card:last-child") ||
-                  document.getElementById("result-panel").querySelector(".card");
-    let spinner = document.getElementById("spinner-wrap");
-    if (!spinner) {
-      spinner = document.createElement("div");
-      spinner.id = "spinner-wrap";
-      spinner.style.cssText = "display:flex;flex-direction:column;align-items:center;" +
-                              "justify-content:center;gap:16px;padding:40px;";
-      spinner.innerHTML = `<div class="spinner"></div>
-                           <p style="color:var(--text-muted);font-size:0.88rem;">
-                             Running prediction...</p>`;
-      document.getElementById("results-content").parentNode.appendChild(spinner);
-    }
-    spinner.style.display = "flex";
-  }
-
-  function hideLoading() {
-    const spinner = document.getElementById("spinner-wrap");
-    if (spinner) spinner.style.display = "none";
-  }
-
-  // ── Form submit ──────────────────────────────────────────────
-  document.getElementById("predict-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const btn = document.getElementById("predict-btn");
-    btn.disabled = true;
-    btn.textContent = "Predicting...";
-    showLoading();
-
-    try {
-      const payload  = getFormPayload();
-      const response = await fetch(`${API}/predict`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || `HTTP ${response.status}`);
+  const ctx = document.getElementById("chart-timeline").getContext("2d");
+  G.charts["timeline"] = new Chart(ctx, {
+    type: "doughnut",
+    data: { labels,datasets:[{
+  data:values,
+  backgroundColor:colors,
+  borderColor:"transparent",
+  borderWidth:0,
+  hoverOffset:8
+}]},
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      cutout:"65%",
+      plugins: {
+        legend:{ position:"bottom", labels:{color:"#8892b0",
+          font:{family:"DM Sans",size:11}, padding:14 }},
+        tooltip:{ callbacks:{
+          label: ctx => ` ${ctx.label}: ${ctx.raw} customers`
+        }}
+      },
+      onClick: (evt, els) => {
+        if (els.length) {
+          const label = labels[els[0].index];
+          const group = customers.filter(c => c.churn_timeline === label);
+          openListModal(`Churn in ${label}`, `${group.length} customers predicted to churn`, group);
+        }
       }
-
-      const data = await response.json();
-      hideLoading();
-      renderResults(data);
-
-    } catch (err) {
-      hideLoading();
-      document.getElementById("placeholder").style.display = "none";
-      document.getElementById("results-content").style.display = "none";
-
-      // Show error
-      let errBox = document.getElementById("err-box");
-      if (!errBox) {
-        errBox = document.createElement("div");
-        errBox.id = "err-box";
-        errBox.className = "error-box";
-        document.getElementById("results-content").parentNode.appendChild(errBox);
-      }
-      errBox.style.display = "block";
-      errBox.textContent   = `Error: ${err.message}`;
-    } finally {
-      btn.disabled    = false;
-      btn.textContent = "Run Prediction";
     }
   });
+}
 
-  // ── Init ─────────────────────────────────────────────────────
-  checkHealth();
+// ── Risk donut ──
+function buildRiskChart(dist, customers) {
+  destroyChart("risk");
+  const labels = Object.keys(dist);
+  const values = Object.values(dist);
+  const colors = labels.map(l => RISK_COLORS[l]);
+
+  const ctx = document.getElementById("chart-risk").getContext("2d");
+  G.charts["risk"] = new Chart(ctx, {
+    type: "doughnut",
+    data: { labels, datasets:[{
+  data:values,
+  backgroundColor:colors,
+  borderColor:"transparent",
+  borderWidth:0,
+  hoverOffset:8
+}] },
+    options: {
+      responsive:true, maintainAspectRatio:true, cutout:"65%",
+      plugins: {
+        legend:{ position:"bottom", labels:{color:"#8892b0",
+          font:{family:"DM Sans",size:11}, padding:14}},
+        tooltip:{ callbacks:{
+          label: ctx => ` ${ctx.label}: ${ctx.raw} customers`
+        }}
+      },
+      onClick: (evt, els) => {
+        if (els.length) {
+          const label = labels[els[0].index];
+          const group = customers.filter(c => c.risk_level === label);
+          openListModal(`${label} Risk Customers`,
+            `${group.length} customers with ${label.toLowerCase()} churn risk`, group);
+        }
+      }
+    }
+  });
+}
+
+// ── Probability histogram ──
+function buildHistogram(buckets) {
+  destroyChart("hist");
+  const ctx = document.getElementById("chart-hist").getContext("2d");
+  const gradient = ctx.createLinearGradient(0,0,0,200);
+  gradient.addColorStop(0, "rgba(255,77,109,0.8)");
+  gradient.addColorStop(1, "rgba(123,108,255,0.2)");
+
+  G.charts["hist"] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: buckets.map(b => b.bucket),
+      datasets:[{ label:"Customers", data:buckets.map(b=>b.count),
+        backgroundColor:gradient, borderRadius:6, borderSkipped:false }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.raw} customers`}}},
+      scales:{
+        x:{ grid:{color:"rgba(255,255,255,0.04)"}, ticks:{color:"#5a6382",font:{size:10}} },
+        y:{ grid:{color:"rgba(255,255,255,0.04)"}, ticks:{color:"#5a6382",font:{size:10}} }
+      }
+    }
+  });
+}
+
+// ── Top reasons ──
+function buildReasons(reasons, customers) {
+  const el = document.getElementById("reasons-list");
+  el.innerHTML = "";
+  const maxPct = Math.max(...reasons.map(r => r.pct));
+  reasons.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "reason-item";
+    div.innerHTML = `
+      <div class="reason-rank">#${r.rank}</div>
+      <div class="reason-body">
+        <div class="reason-feat">${r.feature}</div>
+        <div class="reason-bar-track">
+          <div class="reason-bar-fill" style="width:${(r.pct/maxPct*100).toFixed(1)}%"></div>
+        </div>
+      </div>
+      <div class="reason-pct">${r.pct}%</div>`;
+    div.onclick = () => {
+      const feat  = r.feature;
+      const group = customers.filter(c =>
+        c.top_shap_features.some(sf => sf.feature === feat && sf.shap_value > 0)
+      );
+      openListModal(`Churn Factor: ${feat}`,
+        `${group.length} customers impacted by this feature`, group);
+    };
+    el.appendChild(div);
+  });
+}
+
+// ── Segment chart helper ──
+function buildSegmentChart(canvasId, segments, chartType="bar") {
+  destroyChart(canvasId);
+  const ctx = document.getElementById("chart-"+canvasId).getContext("2d");
+  G.charts[canvasId] = new Chart(ctx, {
+    type: chartType,
+    data: {
+      labels: segments.map(s => s.label),
+      datasets:[
+        { label:"Churned", data:segments.map(s=>s.churn),
+          backgroundColor:"rgba(255,77,109,0.75)", borderRadius:5 },
+        { label:"Retained", data:segments.map(s=>s.total - s.churn),
+          backgroundColor:"rgba(0,245,196,0.3)", borderRadius:5 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{
+        legend:{ labels:{color:"#8892b0",font:{size:10},padding:10} },
+        tooltip:{ callbacks:{
+          afterLabel: ctx => {
+            const seg = segments[ctx.dataIndex];
+            return ` Churn Rate: ${seg.churn_rate}%`;
+          }
+        }}
+      },
+      scales:{
+        x:{ stacked:true, grid:{display:false}, ticks:{color:"#5a6382",font:{size:10}} },
+        y:{ stacked:true, grid:{color:"rgba(255,255,255,0.04)"},
+            ticks:{color:"#5a6382",font:{size:10}} }
+      }
+    }
+  });
+}
+
+function buildSegmentCharts(segments, satDist) {
+  buildSegmentChart("gender",   segments.by_gender);
+  buildSegmentChart("city",     segments.by_city_tier);
+  buildSegmentChart("marital",  segments.by_marital);
+  buildSegmentChart("device",   segments.by_login_device);
+  buildSegmentChart("payment",  segments.by_payment);
+  buildSegmentChart("ordercat", segments.by_order_cat);
+
+  // Satisfaction grouped bar
+  destroyChart("sat");
+  const ctx = document.getElementById("chart-sat").getContext("2d");
+  G.charts["sat"] = new Chart(ctx, {
+    type:"bar",
+    data:{
+      labels: satDist.map(s=>s.score),
+      datasets:[
+        { label:"Churned",  data:satDist.map(s=>s.churned),
+          backgroundColor:"rgba(255,77,109,0.75)", borderRadius:4 },
+        { label:"Retained", data:satDist.map(s=>s.retained),
+          backgroundColor:"rgba(0,245,196,0.3)", borderRadius:4 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{labels:{color:"#8892b0",font:{size:10},padding:10}} },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:"#5a6382"} },
+        y:{ grid:{color:"rgba(255,255,255,0.04)"}, ticks:{color:"#5a6382"} }
+      }
+    }
+  });
+}
+
+// ── Actions panel ──
+function buildActionsPanel(actions, meta) {
+  const el  = document.getElementById("actions-list");
+  const sub = document.getElementById("action-subtitle");
+  sub.textContent = `${meta.at_risk_count} customers at risk next month (${meta.action_pct}% of base). Top interventions:`;
+  el.innerHTML = "";
+  actions.forEach(a => {
+    const div = document.createElement("div");
+    div.className = "action-item";
+    div.innerHTML = `
+      <div class="action-count">Affects ${a.affected_customers} customers</div>
+      <div class="action-text">${a.recommendation}</div>`;
+    el.appendChild(div);
+  });
+}
+
+function buildActionsChart(actions) {
+  destroyChart("actions");
+  const ctx = document.getElementById("chart-actions").getContext("2d");
+  const labels = actions.map((_,i) => `Action ${i+1}`);
+  const gradient = ctx.createLinearGradient(0,0,600,0);
+  gradient.addColorStop(0,"rgba(123,108,255,0.8)");
+  gradient.addColorStop(1,"rgba(0,245,196,0.4)");
+
+  G.charts["actions"] = new Chart(ctx, {
+    type:"bar",
+    data:{
+      labels,
+      datasets:[{
+        label:"Customers Affected",
+        data: actions.map(a=>a.affected_customers),
+        backgroundColor: gradient, borderRadius:6
+      }]
+    },
+    options:{
+      indexAxis:"y",
+      responsive:true, maintainAspectRatio:true,
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{
+          title: (ctx) => {
+            const a = actions[ctx[0].dataIndex];
+            return a.recommendation.substring(0,60)+"...";
+          },
+          label: ctx => ` ${ctx.raw} customers affected`
+        }}
+      },
+      scales:{
+        x:{ grid:{color:"rgba(255,255,255,0.04)"}, ticks:{color:"#5a6382"} },
+        y:{ grid:{display:false}, ticks:{color:"#8892b0",font:{size:11}} }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════════════════
+function renderTable() {
+  const start = (G.currentPage - 1) * G.pageSize;
+  const rows  = G.filtered.slice(start, start + G.pageSize);
+  const tbody = document.getElementById("table-body");
+
+  tbody.innerHTML = rows.map(c => {
+    const prob     = c.churn_probability;
+    const probPct  = Math.round(prob * 100);
+    const probColor= prob>=0.7?C.fire:prob>=0.4?C.amber:C.teal;
+    const topFeat  = c.top_shap_features[0]?.feature || "—";
+    const riskCls  = c.risk_level==="High"?"badge-fire":c.risk_level==="Medium"?"badge-amber":"badge-teal";
+    const predCls  = c.churn_prediction===1?"badge-churn":"badge-ok";
+    const tlMap    = {"1 Month":"badge-fire","3 Months":"badge-amber","6 Months":"badge-teal","Stable":"badge-ok"};
+
+    return `<tr onclick="openCustomerModal('${c.customer_id}')">
+      <td><span class="cid-link">${c.customer_id}</span></td>
+      <td><span class="badge ${predCls}">${c.churn_label}</span></td>
+      <td>
+        <div class="prob-bar">
+          <div class="prob-mini">
+            <div class="prob-mini-fill" style="width:${probPct}%;background:${probColor}"></div>
+          </div>
+          <span class="prob-val" style="color:${probColor}">${probPct}%</span>
+        </div>
+      </td>
+      <td><span class="badge ${riskCls}">${c.risk_level}</span></td>
+      <td><span class="badge ${tlMap[c.churn_timeline]||''}">${c.churn_timeline}</span></td>
+      <td style="color:var(--muted2);font-size:0.78rem;max-width:160px;
+          overflow:hidden;text-overflow:ellipsis">${topFeat}</td>
+    </tr>`;
+  }).join("");
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = Math.ceil(G.filtered.length / G.pageSize);
+  const el    = document.getElementById("pagination");
+  if (total <= 1) { el.innerHTML = ""; return; }
+
+  let html = `<span class="page-info">${G.filtered.length} customers</span>`;
+  if (G.currentPage > 1)
+    html += `<button class="page-btn" onclick="goPage(${G.currentPage-1})">&#x2190;</button>`;
+
+  const start = Math.max(1, G.currentPage - 2);
+  const end   = Math.min(total, G.currentPage + 2);
+  for (let i = start; i <= end; i++)
+    html += `<button class="page-btn ${i===G.currentPage?'active':''}"
+               onclick="goPage(${i})">${i}</button>`;
+
+  if (G.currentPage < total)
+    html += `<button class="page-btn" onclick="goPage(${G.currentPage+1})">&#x2192;</button>`;
+
+  el.innerHTML = html;
+}
+
+function goPage(n) {
+  G.currentPage = n;
+  renderTable();
+  document.getElementById("tab-customers").scrollIntoView({behavior:"smooth"});
+}
+
+// ── Filter ──
+let activeFilter = "all";
+function filterTable(f, btn) {
+  activeFilter  = f;
+  G.currentPage = 1;
+
+  // Update button styles
+  document.querySelectorAll(".filter-btn").forEach(b => {
+    b.classList.remove("active","active-fire","active-amber","active-teal");
+  });
+  if (btn) {
+    const cls = f==="1 Month"?"active-fire":f==="3 Months"?"active-amber":
+                f==="Stable"?"active-teal":"active";
+    btn.classList.add(cls);
+  }
+
+  applyFilters();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("search-input").addEventListener("input", () => {
+    G.currentPage = 1;
+    applyFilters();
+  });
+});
+
+function applyFilters() {
+  const q = (document.getElementById("search-input")?.value||"").toLowerCase();
+  G.filtered = G.customers.filter(c => {
+    const matchQ = !q || c.customer_id.toLowerCase().includes(q);
+    let   matchF = true;
+    if      (activeFilter === "churn")    matchF = c.churn_prediction === 1;
+    else if (activeFilter === "1 Month")  matchF = c.churn_timeline === "1 Month";
+    else if (activeFilter === "3 Months") matchF = c.churn_timeline === "3 Months";
+    else if (activeFilter === "High")     matchF = c.risk_level === "High";
+    else if (activeFilter === "Medium")   matchF = c.risk_level === "Medium";
+    return matchQ && matchF;
+  });
+  renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOMER DETAIL MODAL
+// ═══════════════════════════════════════════════════════════
+function openCustomerModal(cid) {
+  const c = G.customers.find(x => x.customer_id === cid);
+  if (!c) return;
+
+  document.getElementById("m-cid").textContent = cid;
+
+  const isChurn = c.churn_prediction === 1;
+  const badge   = document.getElementById("m-badge");
+  badge.textContent = c.churn_label;
+  badge.className   = `badge ${isChurn?"badge-churn":"badge-ok"}`;
+
+  const prob  = document.getElementById("m-prob");
+  const pColor= c.churn_probability>=0.7?C.fire:c.churn_probability>=0.4?C.amber:C.teal;
+  prob.textContent = `${(c.churn_probability*100).toFixed(1)}% churn probability`;
+  prob.style.color = pColor;
+
+  const tl = document.getElementById("m-timeline");
+  const tlMap={"1 Month":"badge-fire","3 Months":"badge-amber","6 Months":"badge-teal","Stable":"badge-ok"};
+  tl.textContent = c.churn_timeline;
+  tl.className   = `badge ${tlMap[c.churn_timeline]||""}`;
+
+  // Profile
+  const profile = document.getElementById("m-profile");
+  const skip    = new Set(["CustomerID","Churn"]);
+  profile.innerHTML = Object.entries(c.profile)
+    .filter(([k]) => !skip.has(k))
+    .map(([k,v]) => `
+      <div class="profile-item">
+        <div class="profile-key">${k}</div>
+        <div class="profile-val">${v !== null && v !== undefined ? v : "—"}</div>
+      </div>`).join("");
+
+  // SHAP
+  const shapEl  = document.getElementById("m-shap");
+  const maxShap = Math.max(...c.top_shap_features.map(f=>Math.abs(f.shap_value)));
+  shapEl.innerHTML = c.top_shap_features.map(f => {
+    const isPos  = f.shap_value > 0;
+    const barPct = Math.round(Math.abs(f.shap_value)/maxShap*100);
+    const col    = isPos ? C.fire : C.teal;
+    return `
+      <div class="shap-modal-item">
+        <div class="shap-modal-top">
+          <span class="shap-modal-feat">${f.feature}</span>
+          <span class="shap-modal-val ${isPos?"s-pos":"s-neg"}">
+            ${isPos?"+":""}${f.shap_value.toFixed(4)}
+          </span>
+        </div>
+        <div class="shap-track">
+          <div class="shap-fill" style="width:${barPct}%;background:${col}"></div>
+        </div>
+        <div class="shap-dir">${f.direction}</div>
+      </div>`;
+  }).join("");
+
+  // Recs
+  const recsEl = document.getElementById("m-recs");
+  recsEl.innerHTML = c.recommendations.map(r => `
+    <div class="rec-modal-item rp-${r.priority}">
+      <div class="rec-modal-driven">${r.driven_by.replace(/_/g," ")} · ${r.priority} Priority</div>
+      <div class="rec-modal-text">${r.recommendation}</div>
+    </div>`).join("");
+
+  document.getElementById("customer-modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOMER LIST MODAL (from chart click)
+// ═══════════════════════════════════════════════════════════
+function openListModal(title, sub, customers) {
+  document.getElementById("lm-title").textContent = title;
+  document.getElementById("lm-sub").textContent   = sub;
+  const list = document.getElementById("lm-list");
+  const sorted = [...customers].sort((a,b)=>b.churn_probability-a.churn_probability);
+  list.innerHTML = sorted.map(c => {
+    const prob   = Math.round(c.churn_probability*100);
+    const pColor = c.churn_probability>=0.7?C.fire:c.churn_probability>=0.4?C.amber:C.teal;
+    return `
+      <div class="clist-item" onclick="closeModal('list-modal');openCustomerModal('${c.customer_id}')">
+        <span class="clist-id">${c.customer_id}</span>
+        <div class="clist-right">
+          <span class="clist-prob">Prob: ${prob}%</span>
+          <span class="badge" style="background:${pColor}22;color:${pColor};
+            border:1px solid ${pColor}44">${c.risk_level}</span>
+        </div>
+      </div>`;
+  }).join("");
+  document.getElementById("list-modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+// Close on overlay click
+document.querySelectorAll(".modal-overlay").forEach(el => {
+  el.addEventListener("click", e => { if(e.target===el) closeModal(el.id); });
+});
+
+// ═══════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════
+function switchTab(name) {
+  ["overview","segments","actions","customers"].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t===name?"block":"none";
+  });
+  document.querySelectorAll(".tab").forEach((btn,i) => {
+    const names=["overview","segments","actions","customers"];
+    btn.classList.toggle("active", names[i]===name);
+  });
+
+  // Resize charts when tab becomes visible
+  setTimeout(() => {
+    Object.values(G.charts).forEach(ch => ch.resize());
+  }, 50);
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+checkHealth();
+
+document.getElementById("search-input")?.addEventListener("input", () => {
+  G.currentPage = 1; applyFilters();
+});
 </script>
 </body>
 </html>
